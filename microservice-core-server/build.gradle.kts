@@ -18,6 +18,10 @@ dependencies {
 
     implementation("org.jetbrains.exposed:exposed-jdbc:0.40.1")
 
+    // MigrationRunner. Postgres-only at runtime (see its KDoc); the driver and
+    // the flyway-database-postgresql module stay each service's own dependency.
+    implementation("org.flywaydb:flyway-core:11.10.0")
+
     testImplementation(platform("org.junit:junit-bom:5.10.0"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
