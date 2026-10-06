@@ -65,7 +65,10 @@ class WorkspaceBootstrapController(
 
     /**
      * The workspaces this principal may see *and* open — the picker's set, and an
-     * empty array is a valid answer.
+     * empty array is a valid answer. Archived workspaces are excluded: the picker
+     * offers places to open, and an archived workspace is closed. They remain in
+     * the management view (`GET /api/v1/workspaces`), which lists archived rows
+     * so they can be acted on.
      *
      * An empty list is not an error and not a dead end. The frontend pairs it
      * with [listTenants] to decide between the workspace-management empty state

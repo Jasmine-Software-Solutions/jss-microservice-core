@@ -402,6 +402,14 @@ class SessionAuthService(
      * The `listWorkspaces` half does not depend on the workspace, so it is
      * hoisted to a single evaluation per tenant.
      *
+     * **Archived workspaces are never listed**, whatever the grants say. This is
+     * a filter on top of the intersection, not a third grant: the set is what the
+     * picker *offers to open*, and an archived workspace is closed. The
+     * management view is deliberately the opposite —
+     * `WorkspaceController.listWorkspaces` reads the repository directly and
+     * lists archived rows, because that is where an archived workspace stays
+     * visible so it can be acted on.
+     *
      * This cannot be answered by `queryResources`: that returns stored ALLOW
      * *patterns* verbatim and does not expand a tenant-level allow into
      * workspace paths, so it is a hint at best and never an authorization
@@ -417,6 +425,10 @@ class SessionAuthService(
             if (!evaluate(principalId, config.listWorkspaces, config.tenantPath(tenant.id, null))) continue
 
             for (workspace in workspaceRepository.findByTenant(tenant.id)) {
+                // Closed places are not offered, however the grants read. Checked
+                // before the evaluation so an archived row costs nothing to skip.
+                if (workspace.archived) continue
+
                 if (!evaluate(principalId, config.getWorkspace, config.tenantPath(workspace.tenantId, workspace.id))) continue
 
                 result += TenantWorkspace(

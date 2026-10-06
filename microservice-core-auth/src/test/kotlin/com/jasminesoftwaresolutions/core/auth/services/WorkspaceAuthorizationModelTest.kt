@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture
  * listWorkspaces → /tenant/{tenantId}                          (tenant-scoped)
  * getWorkspace   → /tenant/{tenantId}/workspace/{workspaceId}  (workspace-scoped)
  *
- * listable(w) = listWorkspaces on the tenant && getWorkspace on w
+ * listable(w) = !archived && listWorkspaces on the tenant && getWorkspace on w
  * openable(w) = getWorkspace on w
  * ```
  *
@@ -175,6 +175,28 @@ class WorkspaceAuthorizationModelTest {
         // workspace under it: Sales and Marketing are absent despite the
         // tenant-wide grant being present and allowed.
         assertEquals(listOf(support.id), service.listable().map { it.workspaceId })
+    }
+
+    @Test
+    fun `an archived workspace is not listable even with both grants`() {
+        // Both halves granted on both rows, so the only thing withholding
+        // Support is its archive flag — this is the picker showing a workspace
+        // that was archived, the bug this pins. Archived is checked on top of
+        // the intersection, not instead of it.
+        support.archived = true
+        val service = service(
+            grant(config.listWorkspaces, TestResources.tenant(tenantA)),
+            grant(config.getWorkspace, TestResources.tenant(tenantA, sales.id)),
+            grant(config.getWorkspace, TestResources.tenant(tenantA, support.id)),
+        )
+
+        assertEquals(listOf(sales.id), service.listable().map { it.workspaceId })
+
+        // The archive flag is not a revocation: the row stays openable, which is
+        // what lets a session already inside it keep working until the next
+        // load re-selects — and what keeps the management view, which lists
+        // archived rows directly from the repository, able to act on it.
+        assertTrue(service.openable(tenantA, support.id))
     }
 
     @Test
