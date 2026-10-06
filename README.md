@@ -7,7 +7,7 @@ SNS event dispatcher, Hikari/Exposed wiring), and the Javalin Gson mapper.
 
 | Module / artifact | Package root | Contents |
 |---|---|---|
-| `microservice-core-domain` | `com.jasminesoftwaresolutions.core.domain` | `events/Events.kt` (Event, IEventDispatcher, IWorker), `models/Entity.kt` (IIdentified, ICreated), `repositories/Repositories.kt` (IRepository, IIdentifiedRepository), `services/TenantOrganization.kt`. Zero dependencies. |
+| `microservice-core-domain` | `com.jasminesoftwaresolutions.core.domain` | `events/Events.kt` (Event, IEventDispatcher, IWorker), `models/Entity.kt` (IIdentified, ICreated), `repositories/Repositories.kt` (IRepository, IIdentifiedRepository), `services/TenantWorkspace.kt`. Zero dependencies. |
 | `microservice-core-server` | `com.jasminesoftwaresolutions.core.server` | `infrastructure/util/EntityDelegates.kt`, `infrastructure/util/EnvUtil.kt`, `infrastructure/util/GsonFactory.kt`, `infrastructure/services/SnsEventDispatcher.kt`, `infrastructure/db/DatabaseFactory.kt`, `infrastructure/repositories/ExposedEntityRepository.kt` |
 | `microservice-core-interfaces` | `com.jasminesoftwaresolutions.core.interfaces` | `GsonJsonMapper.kt` |
 
