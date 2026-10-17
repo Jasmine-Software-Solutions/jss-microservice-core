@@ -1,3 +1,18 @@
+// Do NOT add the Kotlin annotation processor plugin here, and never add a
+// `kapt(...)` OpenAPI processor to this module.
+//
+// `WorkspaceController` lives here, and annotating it in place is the obvious
+// thing to want — the annotations are on the class, the build should generate
+// the document. It cannot. An annotation processor reads only the sources of
+// the compilation it runs in, so a processor here would document *this*
+// module's sources; a service consuming this jar sees none of them. And running
+// one here as well as in a service is worse: the processor writes a fixed
+// `openapi-plugin/openapi-default.json` resolved by resource name, and the
+// consuming service's fat jar merges duplicates rather than picking a winner,
+// so a second copy silently changes which document is served.
+//
+// Each service documents the shared surface from its own module instead — see
+// `hiring_new/interfaces/.../openapi/SharedSurfaceDocumentation.kt`.
 plugins {
     kotlin("jvm")
 }

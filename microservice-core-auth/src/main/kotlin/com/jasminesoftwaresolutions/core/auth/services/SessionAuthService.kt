@@ -290,6 +290,37 @@ class SessionAuthService(
     }
 
     /**
+     * The principal and access token behind the current request, from whichever
+     * credential it carries.
+     *
+     * The before-filter has usually already resolved this and left the pair on
+     * the context, so that is preferred: introspecting again would double every
+     * request's ID round trips. The fallbacks cover the two cases where the
+     * filter has not run — every service exempts `/api/v1/auth/`, and forms'
+     * filter deliberately leaves an *unauthenticated* request unattributed so
+     * the handler can answer it (see `FormsJavalinApplicationInterface`) — and
+     * they read the request's own Bearer token where there is one, the session
+     * cookie otherwise.
+     *
+     * This is the one authentication entry point for a handler that resolves
+     * its own scope. A handler that also needs a *workspace* goes through
+     * [resolveAuthContext], which is this plus the scope resolution and the
+     * `getWorkspace` gate.
+     *
+     * @throws UnauthorizedResponse if no credential is present, or the one
+     *         present is invalid.
+     */
+    fun authenticate(ctx: Context): Pair<UUID, String> =
+        ctx.attribute<UUID>("principalId")
+            ?.let { principal -> ctx.attribute<String>("accessToken")?.let { principal to it } }
+            ?: when {
+                ctx.header("Authorization")?.startsWith("Bearer ", ignoreCase = true) == true ->
+                    authenticateFromBearer(ctx)
+                else ->
+                    authenticateFromCookie(ctx)
+            }
+
+    /**
      * Authenticate a server-to-server request by reading a Bearer token from
      * the Authorization header and introspecting it against ID.
      *
@@ -377,6 +408,27 @@ class SessionAuthService(
         }
 
     /**
+     * The tenants whose workspaces this principal may *list* — the set the
+     * management list spans, and the grouping its rows are rendered under.
+     *
+     * One `listWorkspaces` evaluation per tenant and nothing else. Deliberately
+     * not [resolveManageableTenants] beside it, which also accepts
+     * `createWorkspace`: the gate on reading a tenant's rows is listing them,
+     * and reusing the wider predicate would need a second pass over the
+     * directory to answer a question this one already answers — at double the
+     * evaluations.
+     *
+     * The two sets are not the same and the difference is deliberate: a
+     * principal that may only *create* reaches the management screen (the
+     * empty-state discriminator is the manageable set) but is shown no existing
+     * rows, because it holds no grant to read any.
+     */
+    fun resolveListableTenants(principalId: UUID, accessToken: String): List<IdTenant> =
+        tenantDirectory.listTenants(accessToken).filter { tenant ->
+            evaluate(principalId, config.listWorkspaces, config.tenantPath(tenant.id, null))
+        }
+
+    /**
      * The workspaces this principal may both *see* and *open* — the picker's set.
      *
      * Visibility is the intersection of two independent grants sitting on two
@@ -461,25 +513,16 @@ class SessionAuthService(
      * body), they are used directly. Otherwise, the values are read from the
      * `<namespace>_tenant` and `<namespace>_workspace` cookies.
      *
-     * The before-filter has already authenticated every request that reaches
-     * here and left the pair it resolved on the context, so this reuses that
-     * rather than introspecting a second time; the routes that are exempt from
-     * the filter (the `/auth/` bootstrap path) authenticate from here instead.
+     * Authentication is [authenticate]'s — the before-filter's already-resolved
+     * pair where there is one, the request's own credential otherwise — and this
+     * adds only the scope resolution and the gate over it.
      *
      * @throws UnauthorizedResponse when no workspace is selected, and
      *         [NotFoundResponse] when the principal has no grant on the one it
      *         named.
      */
     fun resolveAuthContext(ctx: Context): AuthContext {
-        val authenticated = ctx.attribute<UUID>("principalId")
-            ?.let { principal -> ctx.attribute<String>("accessToken")?.let { principal to it } }
-            ?: when {
-                ctx.header("Authorization")?.startsWith("Bearer ", ignoreCase = true) == true ->
-                    authenticateFromBearer(ctx)
-                else ->
-                    authenticateFromCookie(ctx)
-            }
-        val (principalId, accessToken) = authenticated
+        val (principalId, accessToken) = authenticate(ctx)
 
         var resolvedTenantId: UUID? = null
         var resolvedWorkspaceId: UUID? = null

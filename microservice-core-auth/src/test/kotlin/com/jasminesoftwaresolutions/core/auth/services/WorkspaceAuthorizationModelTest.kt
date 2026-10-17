@@ -3,6 +3,7 @@ package com.jasminesoftwaresolutions.core.auth.services
 import com.jasminesoftwaresolutions.core.auth.WorkspaceAuthConfig
 import com.jasminesoftwaresolutions.core.auth.authorization.IEvaluationService
 import com.jasminesoftwaresolutions.core.auth.testutil.FakeWorkspace
+import com.jasminesoftwaresolutions.core.auth.testutil.RecordingEvaluation
 import com.jasminesoftwaresolutions.core.auth.testutil.TestResources
 import com.jasminesoftwaresolutions.core.auth.testutil.testAuthConfig
 import com.jasminesoftwaresolutions.core.domain.repositories.IWorkspaceRepository
@@ -328,7 +329,7 @@ class WorkspaceAuthorizationModelTest {
 
         // The tenant-only path has no workspace segment at all — which is what
         // makes listWorkspaces tenant-wide, and what makes
-        // `POST /auth/workspaces` answerable before a workspace exists.
+        // `POST /api/v1/workspaces` answerable before a workspace exists.
         assertFalse(TestResources.tenant(tenantA).toString().contains("workspace"))
     }
 
@@ -342,36 +343,5 @@ class WorkspaceAuthorizationModelTest {
             TestResources.tenant(tenantA).toString(),
             TestResources.tenant(tenantA, sales.id).toString(),
         )
-    }
-
-    /** Records what it was asked, so call counts are assertable. */
-    private class RecordingEvaluation(private val granted: Set<String>) : IEvaluationService {
-
-        val calls = mutableListOf<Pair<String, CompiledResourcePath>>()
-
-        var queryCalls = 0
-            private set
-
-        override fun evaluate(
-            principalId: UUID,
-            action: String,
-            resource: CompiledResourcePath,
-            context: Map<String, String>,
-        ): CompletableFuture<Boolean> {
-            calls += action to resource
-            return CompletableFuture.completedFuture(key(action, resource) in granted)
-        }
-
-        override fun queryResources(
-            principalId: UUID,
-            action: String,
-        ): CompletableFuture<Set<CompiledResourcePath>> {
-            queryCalls++
-            return CompletableFuture.completedFuture(emptySet())
-        }
-
-        companion object {
-            fun key(action: String, resource: CompiledResourcePath) = "$action @ $resource"
-        }
     }
 }

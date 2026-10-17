@@ -40,4 +40,35 @@ class GsonFactoryTest {
 
         assertTrue(parsed == Instant.ofEpochMilli(1_700_000_000_123L))
     }
+
+    /**
+     * The shape that used to answer 500 instead of 400: an exception held in a
+     * field *declared* as `Exception` — as Javalin's `ValidationError` declares
+     * its fourth field. Reflection into `Throwable#detailMessage` throws
+     * `JsonIOException` under JDK 26, so this both fails to render and takes the
+     * response's status with it. See [GsonFactory]'s KDoc.
+     */
+    private data class ValidationErrorShape(
+        val message: String,
+        val value: String,
+        val exception: Exception,
+    )
+
+    @Test
+    fun `renders an exception field by type and message instead of reflecting`() {
+        val gson = GsonFactory.create()
+
+        val payload = ValidationErrorShape(
+            message = "Invalid UUID",
+            value = "not-a-uuid",
+            exception = IllegalArgumentException("Invalid UUID string: not-a-uuid"),
+        )
+
+        assertEquals(
+            """{"message":"Invalid UUID","value":"not-a-uuid",""" +
+                """"exception":{"type":"IllegalArgumentException",""" +
+                """"message":"Invalid UUID string: not-a-uuid"}}""",
+            gson.toJson(payload),
+        )
+    }
 }
